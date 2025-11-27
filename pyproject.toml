@@ -34,7 +34,7 @@ Source = "https://github.com/BlendingJake/Dict2Rel"
 [tool.hatch.version]
 path = "src/dict2rel/__about__.py"
 
-[tool.hatch.envs.test]
+[tool.hatch.envs.hatch-test]
 dependencies = [
   "pandas",
   "polars"
