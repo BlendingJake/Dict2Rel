@@ -58,7 +58,7 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
 
                 parent = parent[value]
             else:
-                if cur not in parent:
+                if cur not in parent or not isinstance(parent[cur], next_type):
                     parent[cur] = next_type()
 
                 parent = parent[cur]

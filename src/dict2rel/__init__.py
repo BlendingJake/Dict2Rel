@@ -11,13 +11,14 @@ if TYPE_CHECKING:
 
 from dict2rel._errors import ToRowsRequiredError
 from dict2rel._ravel import ravel
+from dict2rel._types import UnravelOptions
 from dict2rel._unravel import unravel
 
-__all__ = ["dict2rel", "rel2dict"]
+__all__ = ["dict2rel", "rel2dict", "UnravelOptions"]
 P = TypeVar("P")
 
 
-def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P]) -> dict[str, P]:
+def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P], options: UnravelOptions | None = None) -> dict[str, P]:
     """Take a list of JSON objects and convert them to tables using the
     provider of your choice (like Polars, Pandas, etc.). Nested arrays of
     JSON objects will be broken apart into their own tables while nested objects
@@ -65,7 +66,7 @@ def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]],
     """
     objs = [obj] if isinstance(obj, dict) else obj
     rows: dict[str, list[Row]] = {}
-    for sheet, data in unravel(objs):
+    for sheet, data in unravel(objs, options or UnravelOptions()):
         if sheet not in rows:
             rows[sheet] = []
 

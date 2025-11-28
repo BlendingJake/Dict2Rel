@@ -2,7 +2,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from dict2rel import dict2rel, rel2dict
+from dict2rel import UnravelOptions, dict2rel, rel2dict
 
 EXAMPLE = {
     "name": {
@@ -61,6 +61,14 @@ def test_basic_with_providers(provider):
     assert primary["name.first"].to_list() == [EXAMPLE["name"]["first"]]
 
 
+def test_reraveling_data_with_markers():
+    """Verify that original data can be reconstructed even
+    when markers were placed.
+    """
+    tables = dict2rel(EXAMPLE, lambda x: x, UnravelOptions(marker="Expanded {len} values"))
+    assert rel2dict(tables) == [EXAMPLE]
+
+
 def test_to_tables_and_back_basic():
     """Test JSON -> tables -> JSON"""
     tables = dict2rel([EXAMPLE], lambda x: x)
@@ -81,3 +89,21 @@ def test_to_tables_and_back_providers(provider, to_rows):
     tables = dict2rel(EXAMPLE, provider)
     og = rel2dict(tables, to_rows)
     assert og == [EXAMPLE]
+
+
+def test_with_unravel_options():
+    """Test custom marker language"""
+    fmt = "{field} had {len} values placed in {sheet}"
+    tables = dict2rel(
+        EXAMPLE,
+        lambda x: x,
+        UnravelOptions(marker=fmt)
+    )
+
+    assert "*" in tables
+    assert "*.phones" in tables
+
+    primary = tables["*"]
+    assert len(primary) == 1
+    assert "phones" in primary[0]
+    assert primary[0]["phones"] == fmt.format(field="phones", len=2, sheet="*.phones")
