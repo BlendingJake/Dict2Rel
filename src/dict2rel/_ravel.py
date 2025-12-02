@@ -17,12 +17,33 @@ def _parse_int_and_pad_parent(val: str, parent: list[JsonValue]) -> int:
     return value
 
 
+def inflate(rows: Iterable[Row]) -> list[JsonObject]:
+    inflated_rows: list[JsonObject] = []
+    for row in rows:
+        new_obj: JsonObject = {}
+        for k, v in row.items():
+            if k == ID_SENTINEL:
+                continue
+
+            if "." in k:
+                _rebuild_nesting_and_place_value(
+                    new_obj,
+                    tuple(k.split(".")),
+                    v
+                )
+            else:
+                new_obj[k] = v
+
+        inflated_rows.append(new_obj)
+    return inflated_rows
+
+
 def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
     # First, we need to reconstruct any nested dicts on all rows.
     id_to_value: dict[tuple[str, ...], JsonValue] = {}
     for rows in tables.values():
         for row in rows:
-            id_to_value[tuple(row[ID_SENTINEL].split("."))] = _rebuild_row(row)
+            id_to_value[tuple(row[ID_SENTINEL].split("."))] = _rebuild_dicts(row)
 
     # Figure out what is the most nested id and work from there up,
     # reconstructing the original values.
@@ -37,39 +58,11 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
             if parts[:i] in id_to_value:
                 longest = parts[:i]
 
-        # Build the layers that are missing between the closest parent
-        # we found in the index and what is specified by this _id.
-        parent = id_to_value[longest]
-        left = parts[len(longest):]
-        for i in range(len(left)-1):
-            # The type of the current part being added is based on the
-            # next part. If the next part is a numeric value, then this
-            # thing we're adding must be a list. If it is a list, then make
-            # sure it is long enough to handle the index we're setting.
-
-            cur = left[i]
-            _next = left[i+1]
-            next_type = list if _next.isdigit() else dict
-
-            if cur.isdigit():
-                value = _parse_int_and_pad_parent(cur, parent)
-                if not isinstance(parent[value], next_type):
-                    parent[value] = next_type()
-
-                parent = parent[value]
-            else:
-                if cur not in parent or not isinstance(parent[cur], next_type):
-                    parent[cur] = next_type()
-
-                parent = parent[cur]
-
-        # We've built the intervening levels, so we can go ahead and
-        # assign the value of interest to what we've built.
-        if left[-1].isdigit():
-            value = _parse_int_and_pad_parent(left[-1], parent)
-            parent[value] = id_to_value[parts]
-        else:
-            parent[parts[-1]] = id_to_value[parts]
+        _rebuild_nesting_and_place_value(
+            id_to_value[longest],
+            parts[len(longest):],
+            id_to_value[parts]
+        )
 
         # We've added this thing to its parent, so we can remove it
         # from the index. The bonus of this is that anything left at the
@@ -79,7 +72,7 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
     return list(id_to_value.values())
 
 
-def _rebuild_row(row: Row) -> JsonValue:
+def _rebuild_dicts(row: Row) -> JsonValue:
     """Take a row and rebuild any nested dicts that are present, remove
     the _id field, and handle any value-only rows. Rebuilding rows involves
     taking "name.first" and changing it back into {"name": {"first": ...}}.
@@ -107,3 +100,55 @@ def _rebuild_row(row: Row) -> JsonValue:
             new_obj[key] = value
 
     return new_obj
+
+
+def _rebuild_nesting_and_place_value(parent: JsonValue, path_to_build: tuple[str, ...], value_at_path: JsonValue) -> JsonValue:
+    """Build any missing layers referenced by ``path_to_build`` in
+    ``parent``. Once rebuilt, place ``value_at_path`` there.
+
+    >>> _rebuild_nesting_and_place_value(
+    ...     {
+    ...         "foo": "bar"
+    ...     },
+    ...     ["path1", "0", "path2"],
+    ...     "the value"
+    ... )
+    {
+        "foo": "bar",
+        "path1": [
+            {
+                "path2": "the value"
+            }
+        ]
+    }
+    """
+    # Build the layers that are missing between the closest parent
+    # we found in the index and what is specified by this _id.
+    for i in range(len(path_to_build)-1):
+        # The type of the current part being added is based on the
+        # next part. If the next part is a numeric value, then this
+        # thing we're adding must be a list. If it is a list, then make
+        # sure it is long enough to handle the index we're setting.
+        cur = path_to_build[i]
+        _next = path_to_build[i+1]
+        next_type = list if _next.isdigit() else dict
+
+        if cur.isdigit():
+            value = _parse_int_and_pad_parent(cur, parent)
+            if not isinstance(parent[value], next_type):
+                parent[value] = next_type()
+
+            parent = parent[value]
+        else:
+            if cur not in parent or not isinstance(parent[cur], next_type):
+                parent[cur] = next_type()
+
+            parent = parent[cur]
+
+    # We've built the intervening levels, so we can go ahead and
+    # assign the value of interest to what we've built.
+    if path_to_build[-1].isdigit():
+        value = _parse_int_and_pad_parent(path_to_build[-1], parent)
+        parent[value] = value_at_path
+    else:
+        parent[path_to_build[-1]] = value_at_path

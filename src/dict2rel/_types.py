@@ -16,6 +16,10 @@ VALUE_SENTINEL = "_value"
 
 @dataclass
 class UnravelOptions:
+    """Options for configuring how an object is unraveled and
+    expanded into one or more tables. Used by :func:`dict2rel.dict2rel`.
+    """
+
     marker: str | None = None
     """The value, if any, which will be placed in a column when
     the value was a list and therefore got expanded to its own table.

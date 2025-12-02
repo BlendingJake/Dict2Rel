@@ -22,6 +22,40 @@ def _determine_sheet_name(parts: FieldPath) -> str:
     return ".".join(sheet_parts)
 
 
+def flattener(obj: list[JsonObject]) -> Iterator[Row]:
+    """Take a list of :attr:`JsonObject` and flatten all nesting to a
+    dictionary where the values will be singletons. Yield out those
+    flattened rows.
+    """
+    root_objs: dict[int | str, list[tuple[FieldPath, Row]]] = {}
+    for fp, true_obj in _unravel(obj, [], UnravelOptions()):
+        if fp[0] not in root_objs:
+            root_objs[fp[0]] = []
+
+        root_objs[fp[0]].append((fp, true_obj))
+
+    for root_id, objs in root_objs.items():
+        sorted_objs = sorted(objs, key=lambda x: x[0])
+        root_obj: Row = {
+            ID_SENTINEL: str(root_id),
+            **sorted_objs[0][1]
+        }
+
+        for child_path, child_obj in sorted_objs[1:]:
+            # Remove first part of path as it will be root_id
+            child_id = ".".join(map(str, child_path[1:]))
+
+            if len(child_obj) == 1 and VALUE_SENTINEL in child_obj:
+                root_obj[child_id] = child_obj[VALUE_SENTINEL]
+            else:
+                root_obj.update({
+                    f"{child_id}.{k}": v
+                    for k, v in child_obj.items()
+                })
+
+        yield root_obj
+
+
 def unravel(obj: list[JsonObject], options: UnravelOptions) -> Iterator[tuple[str, Row]]:
     for fp, true_obj in _unravel(obj, [], options):
         _id = ".".join(map(str, fp))
@@ -29,16 +63,13 @@ def unravel(obj: list[JsonObject], options: UnravelOptions) -> Iterator[tuple[st
         sheet = _determine_sheet_name(fp)
 
         for k, v in tuple(true_obj.items()):
-            if isinstance(v, PartialMarker):
-                if not options.marker:
-                    del true_obj[k]
-                else:
-                    true_obj[k] = options.marker.format(
-                        field=v.field,
-                        id=_id,
-                        len=v.len,
-                        sheet=_determine_sheet_name(v.path)
-                    )
+            if isinstance(v, PartialMarker) and options.marker:
+                true_obj[k] = options.marker.format(
+                    field=v.field,
+                    id=_id,
+                    len=v.len,
+                    sheet=_determine_sheet_name(v.path)
+                )
 
         yield sheet, true_obj
 
@@ -53,7 +84,9 @@ def _unravel(obj: JsonValue, path: FieldPath, options: UnravelOptions) -> Iterat
             if isinstance(v, list):
                 new_path: FieldPath = [*path, k]
                 yield from _unravel(v, new_path, options)
-                new_obj[k] = PartialMarker(field=k, len=len(v), path=new_path)
+
+                if options.marker is not None:
+                    new_obj[k] = PartialMarker(field=k, len=len(v), path=new_path)
             elif isinstance(v, dict):
                 for fp, nested_obj in _unravel(v, [*path, k], options):
                     if all(isinstance(part, str) for part in fp[len(path)+1:]):
