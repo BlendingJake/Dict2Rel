@@ -1,3 +1,87 @@
+""":mod:`dict2rel` is a Python package aimed at aiding situations where you
+have highly nested JSON objects and want to either flatten them into a
+single table or transform them into multiple tables where nested lists get
+broken out into their own sheets; turning a dict into relational tables; and
+providing the name.
+
+>>> from dict2rel import dict2rel, UnravelOptions
+>>> tables = dict2rel(
+...     {
+...         "project": "Alpha-Prime",
+...         "version": "1.0.3",
+...         "config": {
+...             "modules": [
+...                 {
+...                     "id": "A1",
+...                     "status": "active",
+...                     "settings": {
+...                         "security": {
+...                             "encryption_level": 5,
+...                             "algorithms": [
+...                                 "AES-256",
+...                                 "SHA-512"
+...                             ]
+...                         }
+...                     }
+...                 },
+...                 {
+...                     "id": "B2",
+...                     "status": "passive",
+...                     "settings": {
+...                         "security": {
+...                             "encryption_level": 0,
+...                             "algorithms": [
+...                                 "AES-256"
+...                             ]
+...                         }
+...                     }
+...                 }
+...             ]
+...         }
+...     },
+...     UnravelOptions(marker="Expanded {len} results to {sheet}")
+... )
+>>> tables
+{
+    "*": pd.DataFrame([...]),
+    "*.config.modules": pd.DataFrame([...]),
+    "*.config.modules.*.settings.security.algorithms": pd.DataFrame([...])
+}
+
+Where the tables in the example above are as follows.
+
+``*``:
+    =========== ======= ======================================== ===
+    project     version config.modules                           _id
+    =========== ======= ======================================== ===
+    Alpha-Prime 1.0.3   Expanded 2 results to \\*.config.modules  0
+    =========== ======= ======================================== ===
+
+``*.config.modules``:
+    == ======= ================================== ===================================================================== ===================
+    id status  settings.security.encryption_level settings.security.algorithms                                          _id
+    == ======= ================================== ===================================================================== ===================
+    A1 active  5                                  Expanded 2 results to \\*.config.modules.settings.security.algorithms  0.config.modules.0
+    B2 passive 0                                  Expanded 1 results to \\*.config.modules.settings.security.algorithms  0.config.modules.1
+    == ======= ================================== ===================================================================== ===================
+
+``*.config.modules.*.settings.security.algorithm``:
+    =======  =================================================
+    _value   _id
+    =======  =================================================
+    AES-256  0.config.modules.0.settings.security.algorithms.0
+    SHA-512  0.config.modules.0.settings.security.algorithms.1
+    AES-256  0.config.modules.1.settings.security.algorithms.0
+    =======  =================================================
+
+These tables can be converted back to the original JSON by applying :func:`rel2dict`.
+
+>>> from dict2rel import rel2dict
+>>> rel2dict(tables, lambda sheet: (row for _, row in t.iterrows()))
+{
+    # original value
+}
+"""
 # SPDX-FileCopyrightText: 2025-present Jacob Morris <blendingjake@gmail.com>
 #
 # SPDX-License-Identifier: MIT
@@ -17,15 +101,24 @@ from dict2rel._types import UnravelOptions
 from dict2rel._unravel import flattener as _flattener
 from dict2rel._unravel import unravel as _unravel
 
-__all__ = ["dict2rel", "flatten", "rel2dict", "UnravelOptions"]
+__all__ = ["__version__", "dict2rel", "flatten", "inflate", "rel2dict", "UnravelOptions"]
 P = TypeVar("P")
 
 
-def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P], options: UnravelOptions | None = None) -> dict[str, P]:
-    """Take a list of JSON objects and convert them to tables using the
-    provider of your choice (like Polars, Pandas, etc.). Nested arrays of
-    JSON objects will be broken apart into their own tables while nested objects
-    will be flattened.
+def dict2rel(
+    obj: list[JsonObject] | JsonObject,
+    provider: Callable[[list[Row]], P],
+    options: UnravelOptions | None = None
+) -> dict[str, P]:
+    """Take a list of (or single) JSON object(s) and convert them to tables using
+    the provider of your choice to construct the tables (like Polars, Pandas, etc.).
+    Nested arrays of JSON objects will be broken out into their own tables while
+    nested objects will be flattened inline. ``options`` can be provided to do things
+    like place a marker whenever a list is expanded to a new table instead of dropping
+    the column.
+
+    :func:`rel2dict` can be used to convert the results of this function back to
+    ``obj``, such that ``rel2dict(dict2rel(obj, ...)) == obj``.
 
     >>> dict2rel([
     ...     {
@@ -66,6 +159,13 @@ def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]],
             }
         ])
     }
+
+    :param obj: A :attr:`JSONObject` or list of them
+    :param provider: A function which converts a list of rows into a table. Typically,
+        this will be a value like ``pandas.DataFrame`` or ``polars.DataFrame``, but
+        can be an identity lambda which will return the results as lists of dictionaries.
+    :param options: Options to configure how ``obj`` is unraveled, like whether to place
+        markers whenever a column is a list which gets expanded to its own table.
     """
     objs = [obj] if isinstance(obj, dict) else obj
     rows: dict[str, list[Row]] = {}
@@ -82,11 +182,14 @@ def dict2rel(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]],
 
 
 def flatten(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P]) -> P:
-    """Take a list of objects, or a single dict, and flatten it into
-    a single sheet. Unlike :func:`dict2rel`, nested lists are kept on
-    the primary sheet and provided a unique key. :func:`inflate` can be
-    used to reverse this process.
+    """Take a list of objects, or a single dict, and flatten it into a single sheet.
+    Unlike :func:`dict2rel`, nested lists are kept on the primary sheet and
+    provided unique column names.
 
+    :func:`inflate` can be used to reverse this process such that
+    ``inflate(flatten(obj, ...)) == obj``.
+
+    >>> from dict2rel import flatten
     >>> flatten([
     ...     {
     ...         "name": {
@@ -116,14 +219,53 @@ def flatten(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], 
             "phones.1.number": "987654321"
         }
     ])
+
+    :param obj: A :attr:`JSONObject` or list of them
+    :param provider: A function which converts a list of rows into a table. Typically,
+        this will be a value like ``pandas.DataFrame`` or ``polars.DataFrame``, but
+        can be an identity lambda which will return the results as list of dictionaries.
     """
     objs = [obj] if isinstance(obj, dict) else obj
     return provider(list(_flattener(objs)))
 
 
 def inflate(table: P, to_rows: Callable[[P], Iterable[Row]] | None = None) -> list[JsonObject]:
-    """Undo :func:`flatten` and take a sheet with nesting represented by
-    field names and inflate it back to a dictionary with actual nesting.
+    """Undo :func:`flatten` and take a sheet with nesting represented by column
+    names and inflate it back to a list of dictionaries with actual nesting.
+
+    >>> from dict2rel import inflate
+    >>> inflate(pl.DataFrame([
+    ...     {
+    ...         "name": "Bravo",
+    ...         "version.major": "1",
+    ...         "version.minor": "0",
+    ...         "version.patch": "12",
+    ...         "releases.0.date": "2025-02-12",
+    ...         "releases.0.version": "0.0.1",
+    ...         "releases.1.date": "2025-02-18",
+    ...         "releases.1.version": "0.1.0"
+    ...     }
+    ... ]), lambda table: table.rows(named=True))
+    [{
+        'name': 'Bravo',
+        'version': {
+            'major': '1',
+            'minor': '0',
+            'patch': '12'
+        },
+        'releases': [
+            {'date': '2025-02-12', 'version': '0.0.1'},
+            {'date': '2025-02-18', 'version': '0.1.0'}
+        ]
+    }]
+
+    :param table: The table to inflate. This can either be a list of dictionaries,
+        or a table such as ``pandas.DataFrame`` or ``polars.DataFrame``. If one of
+        the latter, ``to_rows`` must be provided to convert the table to dictionaries.
+    :param to_rows: A function to convert the table data to dictionaries if the
+        data isn't already in that format, like if it is in a ``DataFrame``. For
+        ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
+        and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
     """
     if not to_rows and not isinstance(table, list):
         raise ToRowsRequiredError
@@ -139,11 +281,86 @@ def rel2dict(tables: dict[str, list[Row]]) -> list[JsonObject]:
 
 
 @overload
-def rel2dict(tables: dict[str, P], to_rows: Callable[[P], Iterable[Row]]) -> list[JsonObject]:
+def rel2dict(
+    tables: dict[str, P],
+    to_rows: Callable[[P], Iterable[Row]]
+) -> list[JsonObject]:
     pass
 
 
-def rel2dict(tables: dict[str, list[Row] | P], to_rows: Callable[[P], Iterable[Row]] | None=None) -> list[JsonObject]:
+def rel2dict(
+    tables: dict[str, list[Row] | P],
+    to_rows: Callable[[P], Iterable[Row]] | None=None
+) -> list[JsonObject]:
+    """Take a mapping of tables, likely produced by :func:`dict2rel`, and
+    reconstruct the nested JSON from them. The tables themselves can be objects
+    like ``pandas.DataFrame`` or ``polars.DataFrame``, but if they are, then
+    ``to_rows`` must be provided to convert the tables into dictionaries for each
+    row.
+
+    >>> from dict2rel import rel2dict
+    >>> rel2dict(
+    ...     {
+    ...         "*": pl.DataFrame([
+    ...             {
+    ...                 "_id": "0",
+    ...                 "name": "Acme Corp.",
+    ...                 "state": "AZ",
+    ...                 "board": "4 board members in *.board"
+    ...             },
+    ...             {
+    ...                 "_id": "1",
+    ...                 "name": "ZZZ Consulting",
+    ...                 "state": "NY",
+    ...                 "board": "2 board members in *.board"
+    ...             }
+    ...         ]),
+    ...         "*.board": pl.DataFrame([
+    ...             {
+    ...                 "_id": "0.board.0",
+    ...                 "name": "Wile E. Coyote"
+    ...             },
+    ...             {
+    ...                 "_id": "0.board.1",
+    ...                 "name": "Someone Else"
+    ...             },
+    ...             {
+    ...                 "_id": "1.board.0",
+    ...                 "name": "Leonhard Euler"
+    ...             },
+    ...             {
+    ...                 "_id": "1.board.1",
+    ...                 "name": "Carl Gauss"
+    ...             }
+    ...         ])
+    ...     },
+    ...     lambda sheet: sheet.rows(named=True)
+    ... )
+    [
+        {
+            'name': 'Acme Corp.',
+            'state': 'AZ',
+            'board': [
+                {'name': 'Wile E. Coyote'},
+                {'name': 'Someone Else'}
+            ]
+        },
+        {
+            'name': 'ZZZ Consulting',
+            'state': 'NY',
+            'board': [
+                {'name': 'Leonhard Euler'},
+                {'name': 'Carl Gauss'}
+            ]
+        }
+    ]
+
+    :param tables: A mapping of table names to table data
+    :param to_rows: A function to convert the table data to dictionaries if the
+        data isn't already in that format, like if it is in a ``DataFrame``. For
+        ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
+        and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
+    """
     if not to_rows and not all(isinstance(rows, list) for rows in tables.values()):
         raise ToRowsRequiredError
 

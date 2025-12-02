@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import Iterator, NamedTuple
 
-from dict2rel._types import ID_SENTINEL, VALUE_SENTINEL, FieldPath, JsonObject, JsonValue, Row, UnravelOptions
+from dict2rel._types import (
+    ID_SENTINEL,
+    VALUE_SENTINEL,
+    FieldPath,
+    JsonObject,
+    JsonValue,
+    Row,
+    UnravelOptions,
+)
 
 PartialMarker = NamedTuple(
     "PartialMarker",

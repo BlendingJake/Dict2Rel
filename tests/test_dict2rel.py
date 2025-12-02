@@ -4,7 +4,7 @@ import pytest
 
 from dict2rel import UnravelOptions, dict2rel, rel2dict
 
-from .data import EXAMPLE_SMALL
+from .data import DOCSTRING_EXAMPLE_1, EXAMPLE_SMALL
 
 
 def test_basic():
@@ -37,6 +37,78 @@ def test_basic_with_providers(provider):
     assert "name.first" in primary
     assert primary["name.first"].to_list() == [EXAMPLE_SMALL["name"]["first"]]
 
+
+def test_docstring_example_1():
+    """Verify that the docstring example produces the expected result."""
+    tables = dict2rel(
+        DOCSTRING_EXAMPLE_1,
+        pd.DataFrame,
+        UnravelOptions(marker="Expanded {len} results to {sheet}")
+    )
+
+    assert len(tables) == 3
+
+    tables_and_size = [
+        ("*", 1),
+        ("*.config.modules", 2),
+        ("*.config.modules.*.settings.security.algorithms", 3)
+    ]
+    for t, s in tables_and_size:
+        assert t in tables
+        assert len(tables[t]) == s
+
+
+def test_rel2dict_basic():
+    """A basic example ensuring rel2dict works with polars and data
+    which didn't originate with dict2rel.
+    """
+    objs = rel2dict(
+        {
+            "*": pl.DataFrame([
+                {
+                    "_id": "0",
+                    "name": "Acme Corp.",
+                    "state": "AZ",
+                    "board": "4 board members in *.board"
+                },
+                {
+                    "_id": "1",
+                    "name": "ZZZ Consulting",
+                    "state": "NY",
+                    "board": "2 board members in *.board"
+                }
+            ]),
+            "*.board": pl.DataFrame([
+                {
+                    "_id": "0.board.0",
+                    "name": "Wile E. Coyote"
+                },
+                {
+                    "_id": "0.board.1",
+                    "name": "Someone Else"
+                },
+                {
+                    "_id": "1.board.0",
+                    "name": "Leonhard Euler"
+                },
+                {
+                    "_id": "1.board.1",
+                    "name": "Carl Gauss"
+                }
+            ])
+        },
+        lambda t: t.rows(named=True)
+    )
+
+    assert len(objs) == 2
+
+    assert "board" in objs[0]
+    assert len(objs[0]["board"]) == 2
+    assert objs[0]["board"][1]["name"] == "Someone Else"
+
+    assert "board" in objs[1]
+    assert len(objs[1]["board"]) == 2
+    assert objs[1]["board"][0]["name"] == "Leonhard Euler"
 
 def test_reraveling_data_with_markers():
     """Verify that original data can be reconstructed even

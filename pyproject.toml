@@ -37,7 +37,8 @@ path = "src/dict2rel/__about__.py"
 [tool.hatch.envs.docs]
 dependencies = [
     "sphinx",
-    "sphinx-rtd-theme"
+    "sphinx-toolbox",
+    "pydata-sphinx-theme"
 ]
 
 [tool.hatch.envs.docs.scripts]
@@ -75,3 +76,6 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+line-length = 80
