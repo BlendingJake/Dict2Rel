@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Iterable, TypeVar, overload
 if TYPE_CHECKING:
     from dict2rel._types import JsonObject, Row
 
+from dict2rel.__about__ import __version__
 from dict2rel._errors import ToRowsRequiredError
 from dict2rel._ravel import inflate as _inflate
 from dict2rel._ravel import ravel as _ravel

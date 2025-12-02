@@ -34,6 +34,16 @@ Source = "https://github.com/BlendingJake/Dict2Rel"
 [tool.hatch.version]
 path = "src/dict2rel/__about__.py"
 
+[tool.hatch.envs.docs]
+dependencies = [
+    "sphinx",
+    "sphinx-rtd-theme"
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -M html ./docs/source ./docs/build"
+
+
 [tool.hatch.envs.hatch-test]
 dependencies = [
   "pandas",
