@@ -44,12 +44,16 @@ dependencies = [
 [tool.hatch.envs.docs.scripts]
 build = "sphinx-build -M html ./docs/source ./docs/build"
 
-
-[tool.hatch.envs.hatch-test]
+[tool.hatch.envs.test]
 dependencies = [
-  "pandas",
-  "polars"
+  "pytest",
+  "pytest-cov",
+  "polars",
+  "pandas"
 ]
+
+[tool.hatch.envs.test.scripts]
+run = "pytest --cov-config=pyproject.toml --cov=dict2rel --cov-report=html"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
@@ -64,6 +68,7 @@ branch = true
 parallel = true
 omit = [
   "src/dict2rel/__about__.py",
+  "tests/*",
 ]
 
 [tool.coverage.paths]
@@ -75,6 +80,7 @@ exclude_lines = [
   "no cov",
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
+  "pass"
 ]
 
 [tool.ruff]

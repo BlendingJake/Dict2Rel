@@ -101,7 +101,7 @@ from dict2rel._types import UnravelOptions
 from dict2rel._unravel import flattener as _flattener
 from dict2rel._unravel import unravel as _unravel
 
-__all__ = ["__version__", "dict2rel", "flatten", "inflate", "rel2dict", "UnravelOptions"]
+__all__ = ["__version__", "dict2rel", "flatten", "inflate", "rel2dict", "ToRowsRequiredError", "UnravelOptions"]
 P = TypeVar("P")
 
 
@@ -266,6 +266,8 @@ def inflate(table: P, to_rows: Callable[[P], Iterable[Row]] | None = None) -> li
         data isn't already in that format, like if it is in a ``DataFrame``. For
         ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
         and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
+    :raise ToRowsRequiredError: If ``table`` is not a list and ``to_rows`` is not
+        provided to turn it into one.
     """
     if not to_rows and not isinstance(table, list):
         raise ToRowsRequiredError
@@ -360,6 +362,8 @@ def rel2dict(
         data isn't already in that format, like if it is in a ``DataFrame``. For
         ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
         and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
+    :raise ToRowsRequiredError: If ``table`` is not a list and ``to_rows`` is not
+        provided to turn it into one.
     """
     if not to_rows and not all(isinstance(rows, list) for rows in tables.values()):
         raise ToRowsRequiredError

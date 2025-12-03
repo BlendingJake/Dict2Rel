@@ -2,7 +2,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from dict2rel import UnravelOptions, dict2rel, rel2dict
+from dict2rel import ToRowsRequiredError, UnravelOptions, dict2rel, rel2dict
 
 from .data import DOCSTRING_EXAMPLE_1, EXAMPLE_SMALL
 
@@ -109,6 +109,15 @@ def test_rel2dict_basic():
     assert "board" in objs[1]
     assert len(objs[1]["board"]) == 2
     assert objs[1]["board"][0]["name"] == "Leonhard Euler"
+
+
+def test_rel2dict_with_missing_to_rows():
+    """Verify that an error is thrown when to_rows is missing
+    and the table is not just a list.
+    """
+    with pytest.raises(ToRowsRequiredError):
+        rel2dict({"*": pl.DataFrame([])})
+
 
 def test_reraveling_data_with_markers():
     """Verify that original data can be reconstructed even
