@@ -11,3 +11,4 @@ dict2rel documentation
    :caption: Contents:
 
    package
+   examples
