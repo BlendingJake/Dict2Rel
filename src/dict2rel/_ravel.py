@@ -26,11 +26,7 @@ def inflate(rows: Iterable[Row]) -> list[JsonObject]:
                 continue
 
             if "." in k:
-                _rebuild_nesting_and_place_value(
-                    new_obj,
-                    tuple(k.split(".")),
-                    v
-                )
+                _rebuild_nesting_and_place_value(new_obj, tuple(k.split(".")), v)
             else:
                 new_obj[k] = v
 
@@ -53,15 +49,13 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
             continue
 
         # Find the longest prefix id which exists in the lookup
-        longest = (parts[0], )  # this has to be there
-        for i in range(len(parts)-1):
+        longest = (parts[0],)  # this has to be there
+        for i in range(len(parts) - 1):
             if parts[:i] in id_to_value:
                 longest = parts[:i]
 
         _rebuild_nesting_and_place_value(
-            id_to_value[longest],
-            parts[len(longest):],
-            id_to_value[parts]
+            id_to_value[longest], parts[len(longest) :], id_to_value[parts]
         )
 
         # We've added this thing to its parent, so we can remove it
@@ -102,7 +96,9 @@ def _rebuild_dicts(row: Row) -> JsonValue:
     return new_obj
 
 
-def _rebuild_nesting_and_place_value(parent: JsonValue, path_to_build: tuple[str, ...], value_at_path: JsonValue) -> JsonValue:
+def _rebuild_nesting_and_place_value(
+    parent: JsonValue, path_to_build: tuple[str, ...], value_at_path: JsonValue
+) -> JsonValue:
     """Build any missing layers referenced by ``path_to_build`` in
     ``parent``. Once rebuilt, place ``value_at_path`` there.
 
@@ -124,13 +120,13 @@ def _rebuild_nesting_and_place_value(parent: JsonValue, path_to_build: tuple[str
     """
     # Build the layers that are missing between the closest parent
     # we found in the index and what is specified by this _id.
-    for i in range(len(path_to_build)-1):
+    for i in range(len(path_to_build) - 1):
         # The type of the current part being added is based on the
         # next part. If the next part is a numeric value, then this
         # thing we're adding must be a list. If it is a list, then make
         # sure it is long enough to handle the index we're setting.
         cur = path_to_build[i]
-        _next = path_to_build[i+1]
+        _next = path_to_build[i + 1]
         next_type = list if _next.isdigit() else dict
 
         if cur.isdigit():

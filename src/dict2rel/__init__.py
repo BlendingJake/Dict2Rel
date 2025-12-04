@@ -82,6 +82,7 @@ These tables can be converted back to the original JSON by applying :func:`rel2d
     # original value
 }
 """
+
 # SPDX-FileCopyrightText: 2025-present Jacob Morris <blendingjake@gmail.com>
 #
 # SPDX-License-Identifier: MIT
@@ -101,14 +102,22 @@ from dict2rel._types import UnravelOptions
 from dict2rel._unravel import flattener as _flattener
 from dict2rel._unravel import unravel as _unravel
 
-__all__ = ["__version__", "dict2rel", "flatten", "inflate", "rel2dict", "ToRowsRequiredError", "UnravelOptions"]
+__all__ = [
+    "__version__",
+    "dict2rel",
+    "flatten",
+    "inflate",
+    "rel2dict",
+    "ToRowsRequiredError",
+    "UnravelOptions",
+]
 P = TypeVar("P")
 
 
 def dict2rel(
     obj: list[JsonObject] | JsonObject,
     provider: Callable[[list[Row]], P],
-    options: UnravelOptions | None = None
+    options: UnravelOptions | None = None,
 ) -> dict[str, P]:
     """Take a list of (or single) JSON object(s) and convert them to tables using
     the provider of your choice to construct the tables (like Polars, Pandas, etc.).
@@ -175,13 +184,12 @@ def dict2rel(
 
         rows[sheet].append(data)
 
-    return {
-        sheet: provider(rs)
-        for sheet, rs in rows.items()
-    }
+    return {sheet: provider(rs) for sheet, rs in rows.items()}
 
 
-def flatten(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P]) -> P:
+def flatten(
+    obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], P]
+) -> P:
     """Take a list of objects, or a single dict, and flatten it into a single sheet.
     Unlike :func:`dict2rel`, nested lists are kept on the primary sheet and
     provided unique column names.
@@ -229,7 +237,9 @@ def flatten(obj: list[JsonObject] | JsonObject, provider: Callable[[list[Row]], 
     return provider(list(_flattener(objs)))
 
 
-def inflate(table: P, to_rows: Callable[[P], Iterable[Row]] | None = None) -> list[JsonObject]:
+def inflate(
+    table: P, to_rows: Callable[[P], Iterable[Row]] | None = None
+) -> list[JsonObject]:
     """Undo :func:`flatten` and take a sheet with nesting represented by column
     names and inflate it back to a list of dictionaries with actual nesting.
 
@@ -284,15 +294,14 @@ def rel2dict(tables: dict[str, list[Row]]) -> list[JsonObject]:
 
 @overload
 def rel2dict(
-    tables: dict[str, P],
-    to_rows: Callable[[P], Iterable[Row]]
+    tables: dict[str, P], to_rows: Callable[[P], Iterable[Row]]
 ) -> list[JsonObject]:
     pass
 
 
 def rel2dict(
     tables: dict[str, list[Row] | P],
-    to_rows: Callable[[P], Iterable[Row]] | None=None
+    to_rows: Callable[[P], Iterable[Row]] | None = None,
 ) -> list[JsonObject]:
     """Take a mapping of tables, likely produced by :func:`dict2rel`, and
     reconstruct the nested JSON from them. The tables themselves can be objects
@@ -369,7 +378,4 @@ def rel2dict(
         raise ToRowsRequiredError
 
     true_to_rows = to_rows if to_rows else lambda x: x
-    return _ravel({
-        sheet: true_to_rows(rows)
-        for sheet, rows in tables.items()
-    })
+    return _ravel({sheet: true_to_rows(rows) for sheet, rows in tables.items()})

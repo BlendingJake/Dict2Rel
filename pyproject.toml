@@ -34,6 +34,14 @@ Source = "https://github.com/BlendingJake/Dict2Rel"
 [tool.hatch.version]
 path = "src/dict2rel/__about__.py"
 
+[tool.hatch.envs.black]
+dependencies = [
+    "black"
+]
+
+[tool.hatch.envs.black.scripts]
+run = "black ."
+
 [tool.hatch.envs.docs]
 dependencies = [
     "sphinx",

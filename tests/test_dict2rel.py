@@ -20,13 +20,7 @@ def test_basic():
     assert "_value" in tables["*.name.suffixes"][0]
 
 
-@pytest.mark.parametrize(
-    "provider",
-    [
-        pd.DataFrame,
-        pl.DataFrame
-    ]
-)
+@pytest.mark.parametrize("provider", [pd.DataFrame, pl.DataFrame])
 def test_basic_with_providers(provider):
     """Test basic JSON -> tables with various providers"""
     tables = dict2rel(EXAMPLE_SMALL, provider)
@@ -43,7 +37,7 @@ def test_docstring_example_1():
     tables = dict2rel(
         DOCSTRING_EXAMPLE_1,
         pd.DataFrame,
-        UnravelOptions(marker="Expanded {len} results to {sheet}")
+        UnravelOptions(marker="Expanded {len} results to {sheet}"),
     )
 
     assert len(tables) == 3
@@ -51,7 +45,7 @@ def test_docstring_example_1():
     tables_and_size = [
         ("*", 1),
         ("*.config.modules", 2),
-        ("*.config.modules.*.settings.security.algorithms", 3)
+        ("*.config.modules.*.settings.security.algorithms", 3),
     ]
     for t, s in tables_and_size:
         assert t in tables
@@ -64,40 +58,32 @@ def test_rel2dict_basic():
     """
     objs = rel2dict(
         {
-            "*": pl.DataFrame([
-                {
-                    "_id": "0",
-                    "name": "Acme Corp.",
-                    "state": "AZ",
-                    "board": "4 board members in *.board"
-                },
-                {
-                    "_id": "1",
-                    "name": "ZZZ Consulting",
-                    "state": "NY",
-                    "board": "2 board members in *.board"
-                }
-            ]),
-            "*.board": pl.DataFrame([
-                {
-                    "_id": "0.board.0",
-                    "name": "Wile E. Coyote"
-                },
-                {
-                    "_id": "0.board.1",
-                    "name": "Someone Else"
-                },
-                {
-                    "_id": "1.board.0",
-                    "name": "Leonhard Euler"
-                },
-                {
-                    "_id": "1.board.1",
-                    "name": "Carl Gauss"
-                }
-            ])
+            "*": pl.DataFrame(
+                [
+                    {
+                        "_id": "0",
+                        "name": "Acme Corp.",
+                        "state": "AZ",
+                        "board": "4 board members in *.board",
+                    },
+                    {
+                        "_id": "1",
+                        "name": "ZZZ Consulting",
+                        "state": "NY",
+                        "board": "2 board members in *.board",
+                    },
+                ]
+            ),
+            "*.board": pl.DataFrame(
+                [
+                    {"_id": "0.board.0", "name": "Wile E. Coyote"},
+                    {"_id": "0.board.1", "name": "Someone Else"},
+                    {"_id": "1.board.0", "name": "Leonhard Euler"},
+                    {"_id": "1.board.1", "name": "Carl Gauss"},
+                ]
+            ),
         },
-        lambda t: t.rows(named=True)
+        lambda t: t.rows(named=True),
     )
 
     assert len(objs) == 2
@@ -123,7 +109,9 @@ def test_reraveling_data_with_markers():
     """Verify that original data can be reconstructed even
     when markers were placed.
     """
-    tables = dict2rel(EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker="Expanded {len} values"))
+    tables = dict2rel(
+        EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker="Expanded {len} values")
+    )
     assert rel2dict(tables) == [EXAMPLE_SMALL]
 
 
@@ -139,8 +127,8 @@ def test_to_tables_and_back_basic():
     ("provider", "to_rows"),
     [
         (pd.DataFrame, lambda t: (row for _, row in t.iterrows())),
-        (pl.DataFrame, lambda t: t.rows(named=True))
-    ]
+        (pl.DataFrame, lambda t: t.rows(named=True)),
+    ],
 )
 def test_to_tables_and_back_providers(provider, to_rows):
     """Test JSON -> provider tables -> JSON"""
@@ -152,11 +140,7 @@ def test_to_tables_and_back_providers(provider, to_rows):
 def test_with_unravel_options():
     """Test custom marker language"""
     fmt = "{field} had {len} values placed in {sheet}"
-    tables = dict2rel(
-        EXAMPLE_SMALL,
-        lambda x: x,
-        UnravelOptions(marker=fmt)
-    )
+    tables = dict2rel(EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker=fmt))
 
     assert "*" in tables
     assert "*.phones" in tables

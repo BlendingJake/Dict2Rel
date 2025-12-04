@@ -18,13 +18,7 @@ def test_flatten_basic():
     assert obj["matrix.0.0"] == EXAMPLE_SMALL["matrix"][0][0]
 
 
-@pytest.mark.parametrize(
-    "provider",
-    [
-        pd.DataFrame,
-        pl.DataFrame
-    ]
-)
+@pytest.mark.parametrize("provider", [pd.DataFrame, pl.DataFrame])
 def test_flatten_basic_with_providers(provider):
     """Verify that providers are correctly used then flattening the data"""
     table = flatten(EXAMPLE_SMALL, provider)
