@@ -2,6 +2,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/dict2rel.svg)](https://pypi.org/project/dict2rel)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dict2rel.svg)](https://pypi.org/project/dict2rel)
+[![codecov](https://codecov.io/github/BlendingJake/Dict2Rel/graph/badge.svg?token=1RXWN2Y0LW)](https://codecov.io/github/BlendingJake/Dict2Rel)
 
 `dict2rel` is a Python library which can transform JSON with any level of nesting into one or more tables which contain enough information that the tables can be modified and then converted back to the nested JSON format. Essentially, JSON can be converted to relational tables and then back.
 
