@@ -1,15 +1,6 @@
 import polars as pl
-import pytest
 
-from dict2rel import ToRowsRequiredError, inflate
-
-
-def test_inflate_with_missing_to_rows():
-    """Verify that an error is thrown when to_rows is missing
-    and the table is not just a list.
-    """
-    with pytest.raises(ToRowsRequiredError):
-        inflate(pl.DataFrame([]))
+from dict2rel import inflate
 
 
 def test_inflate_with_polars():
@@ -29,7 +20,7 @@ def test_inflate_with_polars():
         ]
     )
 
-    results = inflate(tbl, lambda sheet: sheet.rows(named=True))
+    results = inflate(tbl)
 
     assert len(results) == 1
     assert "releases" in results[0]

@@ -82,8 +82,7 @@ def test_rel2dict_basic():
                     {"_id": "1.board.1", "name": "Carl Gauss"},
                 ]
             ),
-        },
-        lambda t: t.rows(named=True),
+        }
     )
 
     assert len(objs) == 2
@@ -97,14 +96,6 @@ def test_rel2dict_basic():
     assert objs[1]["board"][0]["name"] == "Leonhard Euler"
 
 
-def test_rel2dict_with_missing_to_rows():
-    """Verify that an error is thrown when to_rows is missing
-    and the table is not just a list.
-    """
-    with pytest.raises(ToRowsRequiredError):
-        rel2dict({"*": pl.DataFrame([])})
-
-
 def test_reraveling_data_with_markers():
     """Verify that original data can be reconstructed even
     when markers were placed.
@@ -113,6 +104,36 @@ def test_reraveling_data_with_markers():
         EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker="Expanded {len} values")
     )
     assert rel2dict(tables) == [EXAMPLE_SMALL]
+
+
+@pytest.mark.parametrize(
+    ("provider", "to_rows"),
+    [
+        (pd.DataFrame, None),
+        (pl.DataFrame, None),
+        (lambda x: x, None),
+        (lambda x: x, lambda x: x),
+    ],
+)
+def test_to_row_options(provider, to_rows):
+    """Verify all of the ways to_rows can be provided"""
+    tables = dict2rel(EXAMPLE_SMALL, provider)
+    og = rel2dict(tables, to_rows)
+
+    assert og[0] == EXAMPLE_SMALL
+
+
+def test_to_row_not_provider():
+    """Verify that an error is thrown when to_rows is not provided
+    and the table-type is not known/supported.
+    """
+
+    class MyTable(pd.DataFrame):
+        pass
+
+    tables = dict2rel(EXAMPLE_SMALL, MyTable)
+    with pytest.raises(ToRowsRequiredError):
+        rel2dict(tables)
 
 
 def test_to_tables_and_back_basic():
@@ -124,16 +145,13 @@ def test_to_tables_and_back_basic():
 
 
 @pytest.mark.parametrize(
-    ("provider", "to_rows"),
-    [
-        (pd.DataFrame, lambda t: (row for _, row in t.iterrows())),
-        (pl.DataFrame, lambda t: t.rows(named=True)),
-    ],
+    "provider",
+    [pd.DataFrame, pl.DataFrame],
 )
-def test_to_tables_and_back_providers(provider, to_rows):
+def test_to_tables_and_back_providers(provider):
     """Test JSON -> provider tables -> JSON"""
     tables = dict2rel(EXAMPLE_SMALL, provider)
-    og = rel2dict(tables, to_rows)
+    og = rel2dict(tables)
     assert og == [EXAMPLE_SMALL]
 
 

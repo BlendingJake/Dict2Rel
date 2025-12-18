@@ -4,6 +4,11 @@ single table or transform them into multiple tables where nested lists get
 broken out into their own sheets; turning a dict into relational tables; and
 providing the name.
 
+The library is table-type agnostic and therefore ``pandas.DataFrame``,
+``polars.DataFrame``, or any other provider can be used when constructing
+the tables. The two previously mentioned types are automatically handled
+when converting back from tables into JSON.
+
 >>> from dict2rel import dict2rel, UnravelOptions
 >>> tables = dict2rel(
 ...     {
@@ -77,10 +82,14 @@ Where the tables in the example above are as follows.
 These tables can be converted back to the original JSON by applying :func:`rel2dict`.
 
 >>> from dict2rel import rel2dict
->>> rel2dict(tables, lambda sheet: (row for _, row in t.iterrows()))
+>>> rel2dict(tables)
 {
     # original value
 }
+
+:mod:`dict2rel` also provides functions for converting JSON into a single
+table and then back to JSON with :func:`~dict2rel.flatten` and
+:func:`~dict2rel.inflate`.
 """
 
 # SPDX-FileCopyrightText: 2025-present Jacob Morris <blendingjake@gmail.com>
@@ -89,7 +98,7 @@ These tables can be converted back to the original JSON by applying :func:`rel2d
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterable, TypeVar, overload
+from typing import TYPE_CHECKING, Callable, Iterable, TypeVar
 
 if TYPE_CHECKING:
     from dict2rel._types import JsonObject, Row
@@ -255,7 +264,7 @@ def inflate(
     ...         "releases.1.date": "2025-02-18",
     ...         "releases.1.version": "0.1.0"
     ...     }
-    ... ]), lambda table: table.rows(named=True))
+    ... ]))
     [{
         'name': 'Bravo',
         'version': {
@@ -270,44 +279,25 @@ def inflate(
     }]
 
     :param table: The table to inflate. This can either be a list of dictionaries,
-        or a table such as ``pandas.DataFrame`` or ``polars.DataFrame``. If one of
-        the latter, ``to_rows`` must be provided to convert the table to dictionaries.
-    :param to_rows: A function to convert the table data to dictionaries if the
-        data isn't already in that format, like if it is in a ``DataFrame``. For
-        ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
-        and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
-    :raise ToRowsRequiredError: If ``table`` is not a list and ``to_rows`` is not
-        provided to turn it into one.
+        or a table such as ``pandas.DataFrame`` or ``polars.DataFrame``.
+    :param to_rows: A function to convert the table data to dictionaries. This is only
+        needed if the data isn't already in that format or the tables are a datatype
+        other than ``pandas.DataFrame`` or ``polars.DataFrame``.
+    :raise ToRowsRequiredError: If any of the tables aren't lists or a known
+        table-type like ``pandas.DataFrame`` or ``polars.DataFrame``.
     """
-    if not to_rows and not isinstance(table, list):
-        raise ToRowsRequiredError
-
-    true_to_rows = to_rows if to_rows else lambda x: x
-    rows: Iterable[Row] = true_to_rows(table)
+    rows: Iterable[Row] = _to_rows(to_rows)(table)
     return _inflate(rows)
 
 
-@overload
-def rel2dict(tables: dict[str, list[Row]]) -> list[JsonObject]:
-    pass
-
-
-@overload
 def rel2dict(
-    tables: dict[str, P], to_rows: Callable[[P], Iterable[Row]]
-) -> list[JsonObject]:
-    pass
-
-
-def rel2dict(
-    tables: dict[str, list[Row] | P],
+    tables: dict[str, P],
     to_rows: Callable[[P], Iterable[Row]] | None = None,
 ) -> list[JsonObject]:
     """Take a mapping of tables, likely produced by :func:`dict2rel`, and
     reconstruct the nested JSON from them. The tables themselves can be objects
-    like ``pandas.DataFrame`` or ``polars.DataFrame``, but if they are, then
-    ``to_rows`` must be provided to convert the tables into dictionaries for each
-    row.
+    like ``pandas.DataFrame`` or ``polars.DataFrame``, or other table-types if
+    ``to_rows`` is provided.
 
     >>> from dict2rel import rel2dict
     >>> rel2dict(
@@ -344,8 +334,7 @@ def rel2dict(
     ...                 "name": "Carl Gauss"
     ...             }
     ...         ])
-    ...     },
-    ...     lambda sheet: sheet.rows(named=True)
+    ...     }
     ... )
     [
         {
@@ -367,15 +356,36 @@ def rel2dict(
     ]
 
     :param tables: A mapping of table names to table data
-    :param to_rows: A function to convert the table data to dictionaries if the
-        data isn't already in that format, like if it is in a ``DataFrame``. For
-        ``pandas``, this will likely be ``lambda t: (data for _, data in t.iterrows())``
-        and for ``polars``, it can be ``lambda t: t.rows(named=True)``.
-    :raise ToRowsRequiredError: If ``table`` is not a list and ``to_rows`` is not
-        provided to turn it into one.
+    :param to_rows: A function to convert the table data to dictionaries. This is only
+        needed if the data isn't already in that format or the tables are a datatype
+        other than ``pandas.DataFrame`` or ``polars.DataFrame``.
+    :raise ToRowsRequiredError: If any of the tables aren't lists or a known
+        table-type like ``pandas.DataFrame`` or ``polars.DataFrame``.
     """
-    if not to_rows and not all(isinstance(rows, list) for rows in tables.values()):
+    true_to_rows = _to_rows(to_rows)
+    return _ravel({sheet: true_to_rows(rows) for sheet, rows in tables.items()})
+
+
+def _to_rows(
+    to_rows: Callable[[P], Iterable[Row]] | None,
+) -> Callable[[P], Iterable[Row]]:
+    """Take an optional to_rows converter and produce a new converter
+    which will fallback and fill handling for pandas and polars.
+    """
+
+    def worker(sheet: P) -> Iterable[Row]:
+        if to_rows:
+            return to_rows(sheet)
+
+        tp = type(sheet)
+        if tp.__name__ == "DataFrame":
+            if "pandas" in tp.__module__:
+                return (row for _, row in sheet.iterrows())
+            if "polars" in tp.__module__:
+                return sheet.rows(named=True)
+        if isinstance(sheet, list):
+            return sheet
+
         raise ToRowsRequiredError
 
-    true_to_rows = to_rows if to_rows else lambda x: x
-    return _ravel({sheet: true_to_rows(rows) for sheet, rows in tables.items()})
+    return worker

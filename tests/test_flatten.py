@@ -33,5 +33,5 @@ def test_flatten_and_then_inflate():
     bijective and that the original value can be retrieved.
     """
     flat = flatten(EXAMPLE_SMALL, lambda x: x)
-    inflated = inflate(flat, lambda x: x)
+    inflated = inflate(flat)
     assert inflated[0] == EXAMPLE_SMALL

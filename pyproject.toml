@@ -71,13 +71,13 @@ extra-dependencies = [
 check = "mypy --install-types --non-interactive {args:src/dict2rel tests}"
 
 [tool.coverage.run]
-source_pkgs = ["dict2rel", "tests"]
 branch = true
-parallel = true
 omit = [
   "src/dict2rel/__about__.py",
   "tests/*",
 ]
+parallel = true
+source = ["dict2rel"]
 
 [tool.coverage.paths]
 dict2rel = ["src/dict2rel", "*/dict2rel/src/dict2rel"]
