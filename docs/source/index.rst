@@ -12,3 +12,4 @@ dict2rel documentation
 
    package
    examples
+   releases

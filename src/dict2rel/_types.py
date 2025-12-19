@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Union
+from functools import cached_property
+from typing import Dict, Iterable, List, Union
 
 FieldPath = List[Union[int, str]]
 
@@ -20,6 +21,33 @@ class UnravelOptions:
     expanded into one or more tables. Used by :func:`dict2rel.dict2rel`.
     """
 
+    fields_to_expand: Iterable[str] | None = None
+    """Field paths which point to nested objects which should be expanded
+    to their own tables instead of being flattened inline. Essentially,
+    this will treat the nested objects as if they were nested lists.
+
+    The field paths should ignore any nested arrays and mirror field paths
+    seen in query languages like ElasticSearch's DSL.
+
+    >>> data = [
+    ...     {
+    ...         "addresses": {
+    ...
+    ...         }
+    ...     }
+    ... ]
+    >>> UnravelOptions(
+    ...     fields_to_expand=["addresses"]  # not *.addresses
+    ... )
+
+    .. note::
+        Fields which are expanded to separate tables can be reconstructed with
+        :func:`~dict2rel.rel2dict`, but will be reconstructed as lists of a single
+        object instead of just as an object.
+
+    .. versionadded:: 0.0.2
+    """
+
     marker: str | None = None
     """The value, if any, which will be placed in a column when
     the value was a list and therefore got expanded to its own table.
@@ -35,3 +63,10 @@ class UnravelOptions:
 
     An example marker value would be: ``"{len} values placed in {sheet}"``.
     """
+
+    @cached_property
+    def fields_to_expand_set(self) -> set[str]:
+        if self.fields_to_expand:
+            return set(self.fields_to_expand)
+
+        return set()

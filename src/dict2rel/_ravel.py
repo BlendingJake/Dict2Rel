@@ -71,8 +71,9 @@ def _rebuild_dicts(row: Row) -> JsonValue:
     the _id field, and handle any value-only rows. Rebuilding rows involves
     taking "name.first" and changing it back into {"name": {"first": ...}}.
     """
-    # _id has to be there, so this must be a "value" row
-    if len(row) == 2 and VALUE_SENTINEL in row:
+    # _id has to be there, so this must be a "value" row if there's
+    # only two values and the value sentinel is present.
+    if len(row) == 1 + 1 and VALUE_SENTINEL in row:
         return row[VALUE_SENTINEL]
 
     new_obj: JsonObject = {}
@@ -103,11 +104,7 @@ def _rebuild_nesting_and_place_value(
     ``parent``. Once rebuilt, place ``value_at_path`` there.
 
     >>> _rebuild_nesting_and_place_value(
-    ...     {
-    ...         "foo": "bar"
-    ...     },
-    ...     ["path1", "0", "path2"],
-    ...     "the value"
+    ...     {"foo": "bar"}, ["path1", "0", "path2"], "the value"
     ... )
     {
         "foo": "bar",
