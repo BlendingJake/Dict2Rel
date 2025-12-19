@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "dict2rel"
 dynamic = ["version"]
-description = ''
+description = "A library for transforming nested JSON data into relational tables and back"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
