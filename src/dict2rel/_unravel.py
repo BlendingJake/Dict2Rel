@@ -26,6 +26,20 @@ def _determine_sheet_name(parts: FieldPath) -> str:
     return ".".join(sheet_parts)
 
 
+def _determine_simple_field_path(parts: FieldPath) -> str:
+    """Determine what the simple (almost ElasticSearch style)
+    field path is for a number of parts. The result will strip
+    any levels of array nesting.
+
+    >>> _determine_simple_field_path((0, "addresses", 0))
+    "addresses"
+
+    >>> _determine_simple_field_path((1, "releases", 1, "version", "major"))
+    "releases.version.major"
+    """
+    return ".".join(filter(lambda v: isinstance(v, str), parts))
+
+
 def flattener(obj: list[JsonObject]) -> Iterator[Row]:
     """Take a list of :attr:`JsonObject` and flatten all nesting to a
     dictionary where the values will be singletons. Yield out those
@@ -81,6 +95,11 @@ def _unravel(
         for i, v in enumerate(obj):
             yield from _unravel(v, [*path, i], options)
     elif isinstance(obj, dict):
+        # If the object at this path should be expanded, then add a 0
+        # to the path which will ensure it gets placed on its own sheet
+        if _determine_simple_field_path(path) in options.fields_to_expand_set:
+            path = [*path, 0]
+
         new_obj: Row = {}
         for k, v in obj.items():
             if isinstance(v, list):
@@ -94,7 +113,13 @@ def _unravel(
                     if all(isinstance(part, str) for part in fp[len(path) + 1 :]):
                         for kk, vv in nested_obj.items():
                             new_obj[
-                                ".".join([k, *list(map(str, fp[len(path) + 1 :])), kk])
+                                ".".join(
+                                    [
+                                        k,
+                                        *list(map(str, fp[len(path) + 1 :])),
+                                        kk,
+                                    ]
+                                )
                             ] = vv
                     else:
                         yield fp, nested_obj

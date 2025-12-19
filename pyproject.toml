@@ -51,6 +51,7 @@ dependencies = [
 
 [tool.hatch.envs.docs.scripts]
 build = "sphinx-build -M html ./docs/source ./docs/build"
+clean = "sphinx-build -M clean ./docs/source ./docs/build"
 
 [tool.hatch.envs.test]
 dependencies = [
@@ -94,3 +95,6 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 80
+
+[tool.ruff.lint.extend-per-file-ignores]
+"docs/source/conf.py" = ["A001", "INP001"]

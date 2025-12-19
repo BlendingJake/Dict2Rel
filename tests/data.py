@@ -17,7 +17,10 @@ DOCSTRING_EXAMPLE_1 = {
                 "id": "B2",
                 "status": "passive",
                 "settings": {
-                    "security": {"encryption_level": 0, "algorithms": ["AES-256"]}
+                    "security": {
+                        "encryption_level": 0,
+                        "algorithms": ["AES-256"],
+                    }
                 },
             },
         ]

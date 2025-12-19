@@ -22,12 +22,9 @@ when converting back from tables into JSON.
 ...                     "settings": {
 ...                         "security": {
 ...                             "encryption_level": 5,
-...                             "algorithms": [
-...                                 "AES-256",
-...                                 "SHA-512"
-...                             ]
+...                             "algorithms": ["AES-256", "SHA-512"],
 ...                         }
-...                     }
+...                     },
 ...                 },
 ...                 {
 ...                     "id": "B2",
@@ -35,16 +32,14 @@ when converting back from tables into JSON.
 ...                     "settings": {
 ...                         "security": {
 ...                             "encryption_level": 0,
-...                             "algorithms": [
-...                                 "AES-256"
-...                             ]
+...                             "algorithms": ["AES-256"],
 ...                         }
-...                     }
-...                 }
+...                     },
+...                 },
 ...             ]
-...         }
+...         },
 ...     },
-...     UnravelOptions(marker="Expanded {len} results to {sheet}")
+...     UnravelOptions(marker="Expanded {len} results to {sheet}"),
 ... )
 >>> tables
 {
@@ -138,24 +133,18 @@ def dict2rel(
     :func:`rel2dict` can be used to convert the results of this function back to
     ``obj``, such that ``rel2dict(dict2rel(obj, ...)) == obj``.
 
-    >>> dict2rel([
-    ...     {
-    ...         "name": {
-    ...             "first": "John",
-    ...             "last": "Smith"
-    ...         },
-    ...         "phones": [
-    ...             {
-    ...                 "country": "USA",
-    ...                 "number": "1234567890"
-    ...             },
-    ...             {
-    ...                 "country": "ESP",
-    ...                 "number": "987654321"
-    ...             }
-    ...         ]
-    ...     }
-    ... ], pd.DataFrame)
+    >>> dict2rel(
+    ...     [
+    ...         {
+    ...             "name": {"first": "John", "last": "Smith"},
+    ...             "phones": [
+    ...                 {"country": "USA", "number": "1234567890"},
+    ...                 {"country": "ESP", "number": "987654321"},
+    ...             ],
+    ...         }
+    ...     ],
+    ...     pd.DataFrame,
+    ... )
     {
         "*": pd.DataFrame([
             {
@@ -207,24 +196,18 @@ def flatten(
     ``inflate(flatten(obj, ...)) == obj``.
 
     >>> from dict2rel import flatten
-    >>> flatten([
-    ...     {
-    ...         "name": {
-    ...             "first": "John",
-    ...             "last": "Smith"
-    ...         },
-    ...         "phones": [
-    ...             {
-    ...                 "country": "USA",
-    ...                 "number": "1234567890"
-    ...             },
-    ...             {
-    ...                 "country": "ESP",
-    ...                 "number": "987654321"
-    ...             }
-    ...         ]
-    ...     }
-    ... ], pl.DataFrame)
+    >>> flatten(
+    ...     [
+    ...         {
+    ...             "name": {"first": "John", "last": "Smith"},
+    ...             "phones": [
+    ...                 {"country": "USA", "number": "1234567890"},
+    ...                 {"country": "ESP", "number": "987654321"},
+    ...             ],
+    ...         }
+    ...     ],
+    ...     pl.DataFrame,
+    ... )
     pl.DataFrame([
         {
             "_id": "0",
@@ -253,18 +236,22 @@ def inflate(
     names and inflate it back to a list of dictionaries with actual nesting.
 
     >>> from dict2rel import inflate
-    >>> inflate(pl.DataFrame([
-    ...     {
-    ...         "name": "Bravo",
-    ...         "version.major": "1",
-    ...         "version.minor": "0",
-    ...         "version.patch": "12",
-    ...         "releases.0.date": "2025-02-12",
-    ...         "releases.0.version": "0.0.1",
-    ...         "releases.1.date": "2025-02-18",
-    ...         "releases.1.version": "0.1.0"
-    ...     }
-    ... ]))
+    >>> inflate(
+    ...     pl.DataFrame(
+    ...         [
+    ...             {
+    ...                 "name": "Bravo",
+    ...                 "version.major": "1",
+    ...                 "version.minor": "0",
+    ...                 "version.patch": "12",
+    ...                 "releases.0.date": "2025-02-12",
+    ...                 "releases.0.version": "0.0.1",
+    ...                 "releases.1.date": "2025-02-18",
+    ...                 "releases.1.version": "0.1.0",
+    ...             }
+    ...         ]
+    ...     )
+    ... )
     [{
         'name': 'Bravo',
         'version': {
@@ -302,38 +289,30 @@ def rel2dict(
     >>> from dict2rel import rel2dict
     >>> rel2dict(
     ...     {
-    ...         "*": pl.DataFrame([
-    ...             {
-    ...                 "_id": "0",
-    ...                 "name": "Acme Corp.",
-    ...                 "state": "AZ",
-    ...                 "board": "4 board members in *.board"
-    ...             },
-    ...             {
-    ...                 "_id": "1",
-    ...                 "name": "ZZZ Consulting",
-    ...                 "state": "NY",
-    ...                 "board": "2 board members in *.board"
-    ...             }
-    ...         ]),
-    ...         "*.board": pl.DataFrame([
-    ...             {
-    ...                 "_id": "0.board.0",
-    ...                 "name": "Wile E. Coyote"
-    ...             },
-    ...             {
-    ...                 "_id": "0.board.1",
-    ...                 "name": "Someone Else"
-    ...             },
-    ...             {
-    ...                 "_id": "1.board.0",
-    ...                 "name": "Leonhard Euler"
-    ...             },
-    ...             {
-    ...                 "_id": "1.board.1",
-    ...                 "name": "Carl Gauss"
-    ...             }
-    ...         ])
+    ...         "*": pl.DataFrame(
+    ...             [
+    ...                 {
+    ...                     "_id": "0",
+    ...                     "name": "Acme Corp.",
+    ...                     "state": "AZ",
+    ...                     "board": "4 board members in *.board",
+    ...                 },
+    ...                 {
+    ...                     "_id": "1",
+    ...                     "name": "ZZZ Consulting",
+    ...                     "state": "NY",
+    ...                     "board": "2 board members in *.board",
+    ...                 },
+    ...             ]
+    ...         ),
+    ...         "*.board": pl.DataFrame(
+    ...             [
+    ...                 {"_id": "0.board.0", "name": "Wile E. Coyote"},
+    ...                 {"_id": "0.board.1", "name": "Someone Else"},
+    ...                 {"_id": "1.board.0", "name": "Leonhard Euler"},
+    ...                 {"_id": "1.board.1", "name": "Carl Gauss"},
+    ...             ]
+    ...         ),
     ...     }
     ... )
     [

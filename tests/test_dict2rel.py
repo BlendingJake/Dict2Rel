@@ -96,12 +96,49 @@ def test_rel2dict_basic():
     assert objs[1]["board"][0]["name"] == "Leonhard Euler"
 
 
+def test_reraveling_data_with_forcibly_expanded_fields():
+    """Verify that unraveled data with field paths set for objects to
+    expand can be raveled by up. They won't be the exact same as the
+    raveling won't know that it was a nested object that was expanded
+    because of the UnravelOptions.
+    """
+    data = {
+        "name": 1,
+        "version": {"major": 1},
+        "authors": [{"name": {"first": "John", "last": "Smith"}}],
+    }
+
+    tables = dict2rel(
+        data,
+        lambda x: x,
+        UnravelOptions(fields_to_expand=["authors.name", "version"]),
+    )
+    raveled = rel2dict(tables)
+
+    assert len(raveled) == 1
+
+    assert "version" in raveled[0]
+    assert isinstance(raveled[0]["version"], list)
+    assert raveled[0]["version"][0]["major"] == 1
+
+    assert "authors" in raveled[0]
+    authors = raveled[0]["authors"]
+    assert isinstance(authors, list)
+    assert len(authors) == 1
+    assert isinstance(authors[0], dict)
+    assert "name" in authors[0]
+    assert isinstance(authors[0]["name"], list)
+    assert authors[0]["name"][0]["first"] == "John"
+
+
 def test_reraveling_data_with_markers():
     """Verify that original data can be reconstructed even
     when markers were placed.
     """
     tables = dict2rel(
-        EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker="Expanded {len} values")
+        EXAMPLE_SMALL,
+        lambda x: x,
+        UnravelOptions(marker="Expanded {len} values"),
     )
     assert rel2dict(tables) == [EXAMPLE_SMALL]
 
@@ -155,7 +192,34 @@ def test_to_tables_and_back_providers(provider):
     assert og == [EXAMPLE_SMALL]
 
 
-def test_with_unravel_options():
+def test_unravel_with_specified_fields_to_expand():
+    """Verify that nested objects can be forced to separate
+    sheets by specifying the path in the UnravelOptions.
+    """
+    data = {
+        "name": 1,
+        "version": {"major": 1},
+        "authors": [{"name": {"first": "John", "last": "Smith"}}],
+    }
+
+    not_expanded = dict2rel(data, lambda x: x)
+    assert len(not_expanded) == 2
+
+    expanded = dict2rel(
+        data,
+        lambda x: x,
+        UnravelOptions(fields_to_expand=["authors.name", "version"]),
+    )
+    assert len(expanded) == 4
+
+    assert "*.version" in expanded
+    assert "version" not in expanded["*"][0]
+
+    assert "*.authors.*.name" in expanded
+    assert "first" in expanded["*.authors.*.name"][0]
+
+
+def test_with_unravel_marker():
     """Test custom marker language"""
     fmt = "{field} had {len} values placed in {sheet}"
     tables = dict2rel(EXAMPLE_SMALL, lambda x: x, UnravelOptions(marker=fmt))
