@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Iterator, NamedTuple
 
+from dict2rel._schema import analyze_schema as _analyze_schema
 from dict2rel._types import (
     ID_SENTINEL,
     VALUE_SENTINEL,
@@ -71,12 +73,32 @@ def flattener(obj: list[JsonObject]) -> Iterator[Row]:
 def unravel(
     obj: list[JsonObject], options: UnravelOptions
 ) -> Iterator[tuple[str, Row]]:
+    made_homogeneous: set[str] = set()
+    if options.support_heterogeneous_data is True:
+        new_options = replace(options)
+        if options.fields_to_expand:
+            new_options.fields_to_expand = list(options.fields_to_expand)
+        else:
+            new_options.fields_to_expand = []
+
+        schema = _analyze_schema(obj, [])
+        for field in schema.values():
+            if field.field and dict in field.types and list in field.types:
+                new_options.fields_to_expand.append(field.field)
+                made_homogeneous.add(field.field)
+
+        options = new_options
+
     for fp, true_obj in _unravel(obj, [], options):
         _id = ".".join(map(str, fp))
         true_obj[ID_SENTINEL] = _id
-        sheet = _determine_sheet_name(fp)
 
-        for k, v in tuple(true_obj.items()):
+        if (simple := _determine_simple_field_path(fp)) in made_homogeneous:
+            sheet = simple
+        else:
+            sheet = _determine_sheet_name(fp)
+
+        for k, v in true_obj.items():
             if isinstance(v, PartialMarker) and options.marker:
                 true_obj[k] = options.marker.format(
                     field=v.field,
@@ -85,7 +107,9 @@ def unravel(
                     sheet=_determine_sheet_name(v.path),
                 )
 
-        yield sheet, true_obj
+        # Only yield the row data if there is actually data
+        if len(true_obj) > 1:
+            yield sheet, true_obj
 
 
 def _unravel(
@@ -95,10 +119,10 @@ def _unravel(
         for i, v in enumerate(obj):
             yield from _unravel(v, [*path, i], options)
     elif isinstance(obj, dict):
-        # If the object at this path should be expanded, then add a 0
-        # to the path which will ensure it gets placed on its own sheet
-        if _determine_simple_field_path(path) in options.fields_to_expand_set:
-            path = [*path, 0]
+        # # If the object at this path should be expanded, then add a 0
+        # # to the path which will ensure it gets placed on its own sheet
+        # if _determine_simple_field_path(path) in options.fields_to_expand_set:
+        #     path = [*path, 0]
 
         new_obj: Row = {}
         for k, v in obj.items():
@@ -110,7 +134,11 @@ def _unravel(
                     new_obj[k] = PartialMarker(field=k, len=len(v), path=new_path)
             elif isinstance(v, dict):
                 for fp, nested_obj in _unravel(v, [*path, k], options):
-                    if all(isinstance(part, str) for part in fp[len(path) + 1 :]):
+                    if (
+                        all(isinstance(part, str) for part in fp[len(path) + 1 :])
+                        and _determine_simple_field_path(fp)
+                        not in options.fields_to_expand_set
+                    ):
                         for kk, vv in nested_obj.items():
                             new_obj[
                                 ".".join(

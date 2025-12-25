@@ -187,3 +187,73 @@ _id catalog_id name                courses.0.course_id courses.0.title          
 
 :func:`dict2rel.inflate` provides the complement to :func:`~dict2rel.flatten` as :func:`~dict2rel.rel2dict`
 does for :func:`dict2rel.dict2rel`.
+
+
+Heterogeneous data
+------------------
+
+Heterogeneous means diverse or varied. In the context of :mod:`dict2rel`, this refers to
+fields where the value has different types across objects. In particular, the situation
+where the value is sometimes an object and other times a list of objects stands out as
+the object will be flattened inline and the list of objects will be placed in a separate
+table. This can result in data for the same field being placed in two different places.
+
+To address this, :attr:`dict2rel.UnravelOptions.support_heterogeneous_data` can be set.
+When it is, a pass will be done to analyze the data and detect these mismatched type
+scenarios. Then, the fields will be handled consistently and the data will always be
+placed in a separate table. See the examples below to contrast the flag being set versus
+not set.
+
+.. code-block:: json
+    :caption: Data for examples below
+
+    [
+        {
+            "addresses": {
+                "address1": "101 North Street",
+                "city": "Waco",
+                "state": "Texas",
+                "zip": "76711",
+            }
+        },
+        {
+            "addresses": [
+                {
+                    "address1": "500 W 6th St",
+                    "city": "Waterloo",
+                    "state": "Iowa",
+                    "zip": "50701",
+                }
+            ]
+        }
+    ]
+
+With ``support_heterogeneous_data = False``:
+
+* ``*``
+
+  +--------------------+----------------+-----------------+---------------+-----+
+  | addresses.address1 | addresses.city | addresses.state | addresses.zip | _id |
+  +====================+================+=================+===============+=====+
+  | 101 North Street   | Waco           | Texas           | 76711         | 0   |
+  +--------------------+----------------+-----------------+---------------+-----+
+
+* ``*.addresses``
+
+  +--------------+----------+-------+-------+---------------+
+  | address1     | city     | state | zip   | _id           |
+  +==============+==========+=======+=======+===============+
+  | 500 W 6th St | Waterloo | Iowa  | 50701 | 1.addresses.0 |
+  +--------------+----------+-------+-------+---------------+
+
+With ``support_heterogeneous_data = True``
+
+* ``addresses``
+
+  +------------------+----------+-------+-------+---------------+
+  | address1         | city     | state | zip   | _id           |
+  +==================+==========+=======+=======+===============+
+  | 101 North Street | Waco     | Texas | 76711 | 0.addresses.0 |
+  +------------------+----------+-------+-------+---------------+
+  | 500 W 6th St     | Waterloo | Iowa  | 50701 | 1.addresses.0 |
+  +------------------+----------+-------+-------+---------------+

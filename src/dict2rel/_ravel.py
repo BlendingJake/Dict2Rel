@@ -54,6 +54,9 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
             if parts[:i] in id_to_value:
                 longest = parts[:i]
 
+        if longest not in id_to_value:
+            id_to_value[longest] = {}
+
         _rebuild_nesting_and_place_value(
             id_to_value[longest], parts[len(longest) :], id_to_value[parts]
         )
@@ -63,7 +66,14 @@ def ravel(tables: dict[str, Iterable[Row]]) -> list[JsonObject]:
         # end must be a root/original row.
         del id_to_value[parts]
 
-    return list(id_to_value.values())
+    # Depending on nesting and whether stubs existed for ancestors, the
+    # results may be out of order. For example, if the * table was
+    # dropped because it was empty, then we don't have stubs for the
+    # top-level objects with IDs like 0, 1, etc. They'll get recreated
+    # in this process, but if 1 was really nested, then it's descendant
+    # gets sorted first above and thus the stub for 1 gets created before
+    # the stub for 0, thus putting them out of order.
+    return [value for _, value in sorted(id_to_value.items(), key=lambda tup: tup[0])]
 
 
 def _rebuild_dicts(row: Row) -> JsonValue:

@@ -167,6 +167,12 @@ def dict2rel(
         ])
     }
 
+    .. versionchanged:: 0.0.3
+        Rows are no longer produced if they would otherwise be empty (or just
+        ``_id``). Tables are no longer produced when there are no rows. Empty
+        rows were generated if an object only had one key and it was nested
+        such that the values got placed in a separate table.
+
     :param obj: A :attr:`JSONObject` or list of them
     :param provider: A function which converts a list of rows into a table. Typically,
         this will be a value like ``pandas.DataFrame`` or ``polars.DataFrame``, but
