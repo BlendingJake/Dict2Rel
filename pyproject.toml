@@ -62,7 +62,7 @@ dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
-run = "pytest --cov-config=pyproject.toml --cov=dict2rel --cov-report=html"
+run = "pytest --cov-config=pyproject.toml --cov=dict2rel --cov-report=html {args}"
 run-xml = "pytest --cov-config=pyproject.toml --cov=dict2rel --cov-report=xml"
 
 [tool.hatch.envs.types]

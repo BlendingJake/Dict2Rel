@@ -16,6 +16,20 @@ VALUE_SENTINEL = "_value"
 
 
 @dataclass
+class Field:
+    field: str
+    types: set[type]
+
+
+class Schema(dict[str, Field]):
+    def add_or_update(self, field: str, tp: type):
+        if field not in self:
+            self[field] = Field(field, set())
+
+        self[field].types.add(tp)
+
+
+@dataclass(kw_only=True)
 class UnravelOptions:
     """Options for configuring how an object is unraveled and
     expanded into one or more tables. Used by :func:`dict2rel.dict2rel`.
@@ -40,12 +54,13 @@ class UnravelOptions:
     ...     fields_to_expand=["addresses"]  # not *.addresses
     ... )
 
-    .. note::
-        Fields which are expanded to separate tables can be reconstructed with
-        :func:`~dict2rel.rel2dict`, but will be reconstructed as lists of a single
-        object instead of just as an object.
-
     .. versionadded:: 0.0.2
+
+    .. versionchanged:: 0.0.3
+        :func:`~dict2rel.rel2dict` will now correctly reconstruct the
+        original object even when specific fields were set to be expanded.
+        Fields which were objects are no longer reconstructed as lists of
+        a single object.
     """
 
     marker: str | None = None
@@ -62,6 +77,26 @@ class UnravelOptions:
       were placed
 
     An example marker value would be: ``"{len} values placed in {sheet}"``.
+    """
+
+    support_heterogeneous_data: bool = False
+    """By default, the expectation is that the value for a given field path
+    has the same type across all objects. However, that is not always the
+    case and that is particularly impactful if the value is sometimes an
+    object, which will be flattened inline, and other times a list of objects,
+    which will be put in their own sheet.
+
+    By setting this flag, fields which have object values sometimes and list
+    values others will be handled consistently and always placed in a
+    separate table.
+
+    .. note::
+        The produced table names may be different for the same data depending
+        on whether this flag is set or not. The data will be reconstructed
+        to the same original objects, but the intermediate tables may be named
+        differently.
+
+    .. versionadded:: 0.0.3
     """
 
     @cached_property

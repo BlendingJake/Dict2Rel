@@ -32,6 +32,53 @@ def test_basic_with_providers(provider):
     assert primary["name.first"].to_list() == [EXAMPLE_SMALL["name"]["first"]]
 
 
+def test_dict2rel_003_release_example():
+    """Verify example from 0.0.3 release notes showing before and
+    after of specifying support_heterogeneous_data = True.
+
+    This also validates situations where the * table is dropped
+    because there is no data to actually put in it.
+    """
+    data = [
+        {
+            "addresses": {
+                "address1": "101 North Street",
+                "city": "Waco",
+                "state": "Texas",
+                "zip": "76711",
+            }
+        },
+        {
+            "addresses": [
+                {
+                    "address1": "500 W 6th St",
+                    "city": "Waterloo",
+                    "state": "Iowa",
+                    "zip": "50701",
+                }
+            ]
+        },
+    ]
+
+    normal = dict2rel(data, lambda x: x)
+    flagged = dict2rel(
+        data, lambda x: x, UnravelOptions(support_heterogeneous_data=True)
+    )
+
+    assert set(normal.keys()) == {"*", "*.addresses"}
+    assert all(len(table) == 1 for table in normal.values())
+    assert normal["*"][0].get("addresses.address1") == data[0]["addresses"]["address1"]
+
+    assert set(flagged.keys()) == {"addresses"}
+    assert len(flagged["addresses"]) == 2
+    assert (
+        flagged["addresses"][1].get("address1") == data[1]["addresses"][0]["address1"]
+    )
+
+    assert rel2dict(normal) == data
+    assert rel2dict(flagged) == data
+
+
 def test_docstring_example_1():
     """Verify that the docstring example produces the expected result."""
     tables = dict2rel(
@@ -50,6 +97,55 @@ def test_docstring_example_1():
     for t, s in tables_and_size:
         assert t in tables
         assert len(tables[t]) == s
+
+
+def test_heterogeneous():
+    """Test that heterogenous example works with that support
+    enabled.
+    """
+    data = [
+        {
+            "local": False,
+            "variable1": {"key": 1},
+            "nested": [{"variable2": [{"key2": 1}]}],
+        },
+        {"variable1": [{"key": 2}], "nested": [{"variable2": {"key2": 2}}]},
+    ]
+
+    tables = dict2rel(
+        data, lambda x: x, UnravelOptions(support_heterogeneous_data=True)
+    )
+
+    assert set(tables.keys()) == {"*", "variable1", "nested.variable2"}
+
+    assert len(tables["variable1"]) == 2
+    assert tables["variable1"][0]["key"] == 1
+    assert tables["variable1"][1]["key"] == 2
+
+    assert len(tables["nested.variable2"]) == 2
+    assert tables["nested.variable2"][0]["key2"] == 1
+    assert tables["nested.variable2"][1]["key2"] == 2
+
+    og = rel2dict(tables)
+    assert og == data
+
+
+def test_heterogeneous_flag_on_homogeneous_data():
+    """Verify that homogeneous data is re-raveled the exact same
+    regardless of whether the heterogeneous flag is set or not.
+    """
+    flagged_tables = dict2rel(
+        EXAMPLE_SMALL,
+        lambda x: x,
+        UnravelOptions(support_heterogeneous_data=True),
+    )
+    normal_tables = dict2rel(EXAMPLE_SMALL, lambda x: x)
+
+    og_from_flagged = rel2dict(flagged_tables)
+    og_from_normal = rel2dict(normal_tables)
+
+    assert og_from_flagged == og_from_normal
+    assert og_from_normal == [EXAMPLE_SMALL]
 
 
 def test_rel2dict_basic():
@@ -114,21 +210,7 @@ def test_reraveling_data_with_forcibly_expanded_fields():
         UnravelOptions(fields_to_expand=["authors.name", "version"]),
     )
     raveled = rel2dict(tables)
-
-    assert len(raveled) == 1
-
-    assert "version" in raveled[0]
-    assert isinstance(raveled[0]["version"], list)
-    assert raveled[0]["version"][0]["major"] == 1
-
-    assert "authors" in raveled[0]
-    authors = raveled[0]["authors"]
-    assert isinstance(authors, list)
-    assert len(authors) == 1
-    assert isinstance(authors[0], dict)
-    assert "name" in authors[0]
-    assert isinstance(authors[0]["name"], list)
-    assert authors[0]["name"][0]["first"] == "John"
+    assert raveled[0] == data
 
 
 def test_reraveling_data_with_markers():
@@ -210,7 +292,7 @@ def test_unravel_with_specified_fields_to_expand():
         lambda x: x,
         UnravelOptions(fields_to_expand=["authors.name", "version"]),
     )
-    assert len(expanded) == 4
+    assert len(expanded) == 3
 
     assert "*.version" in expanded
     assert "version" not in expanded["*"][0]
