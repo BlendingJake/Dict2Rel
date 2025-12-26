@@ -1,5 +1,9 @@
 # dict2rel
 
+<p align="center">
+    <img src="docs/source/_static/logo.png" alt="dict2rel logo" width="350" style="border-radius: 1em">
+</p>
+
 [![PyPI - Version](https://img.shields.io/pypi/v/dict2rel.svg)](https://pypi.org/project/dict2rel)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dict2rel.svg)](https://pypi.org/project/dict2rel)
 [![codecov](https://codecov.io/github/BlendingJake/Dict2Rel/graph/badge.svg?token=1RXWN2Y0LW)](https://codecov.io/github/BlendingJake/Dict2Rel)
